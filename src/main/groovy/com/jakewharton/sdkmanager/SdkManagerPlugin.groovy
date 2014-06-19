@@ -2,6 +2,7 @@ package com.jakewharton.sdkmanager
 
 import com.android.build.gradle.AppPlugin
 import com.android.build.gradle.LibraryPlugin
+import com.jakewharton.sdkmanager.internal.AndroidCommand
 import com.jakewharton.sdkmanager.internal.PackageResolver
 import com.jakewharton.sdkmanager.internal.SdkResolver
 import com.jakewharton.sdkmanager.internal.System
@@ -14,6 +15,7 @@ import org.gradle.api.tasks.StopExecutionException
 
 class SdkManagerPlugin implements Plugin<Project> {
   final Logger log = Logging.getLogger SdkManagerPlugin
+  PackageResolver pkgResolver
 
   @Override void apply(Project project) {
     if (hasAndroidPlugin(project)) {
@@ -27,6 +29,13 @@ class SdkManagerPlugin implements Plugin<Project> {
       sdk = SdkResolver.resolve project
     }
 
+    pkgResolver = new PackageResolver(project, sdk, new AndroidCommand.Real(sdk, new System.Real()))
+
+    //Must be added before dependencies are declared
+    project.repositories.maven {
+      url pkgResolver.androidRepositoryDir
+    }
+
     // Defer resolving SDK package dependencies until after the model is finalized.
     project.afterEvaluate {
       if (!hasAndroidPlugin(project)) {
@@ -35,7 +44,7 @@ class SdkManagerPlugin implements Plugin<Project> {
       }
 
       time "Package resolve", {
-        PackageResolver.resolve project, sdk
+        pkgResolver.resolve()
       }
     }
   }
