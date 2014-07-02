@@ -23,28 +23,33 @@ class AndroidCommandTest {
   }
 
   @Test public void simple() {
-    def command = command.generateCommand('foo')
-    assertThat(command).containsExactly(exe, 'update', 'sdk', '-a', '-u', '-t', 'foo')
+    def command = command.generateCommand('foo', true)
+    assertThat(command).containsExactly(exe, 'update', 'sdk', '-u', '-a', '-t', 'foo')
+  }
+
+  @Test public void notAll() throws Exception {
+    def command = command.generateCommand('foo', false)
+    assertThat(command).containsExactly(exe, 'update', 'sdk', '-u', '-t', 'foo')
   }
 
   @Test public void proxy() {
     system.properties.put 'http.proxyHost', 'example.com'
     system.properties.put 'http.proxyPort', '1234'
-    def command = command.generateCommand('foo')
+    def command = command.generateCommand('foo', true)
     assertThat(command).
-        containsExactly(exe, 'update', 'sdk', '-a', '-u', '--proxy-host', 'example.com',
+        containsExactly(exe, 'update', 'sdk', '-u', '-a', '--proxy-host', 'example.com',
             '--proxy-port', '1234', '-t', 'foo')
   }
 
   @Test public void proxyHostRequiresPort() {
     system.properties.put 'http.proxyHost', 'example.com'
-    def command = command.generateCommand('foo')
-    assertThat(command).containsExactly(exe, 'update', 'sdk', '-a', '-u', '-t', 'foo')
+    def command = command.generateCommand('foo', true)
+    assertThat(command).containsExactly(exe, 'update', 'sdk', '-u', '-a', '-t', 'foo')
   }
 
   @Test public void proxyPortRequiresHost() {
     system.properties.put 'http.proxyPort', '1234'
-    def command = command.generateCommand('foo')
-    assertThat(command).containsExactly(exe, 'update', 'sdk', '-a', '-u', '-t', 'foo')
+    def command = command.generateCommand('foo', true)
+    assertThat(command).containsExactly(exe, 'update', 'sdk', '-u', '-a', '-t', 'foo')
   }
 }

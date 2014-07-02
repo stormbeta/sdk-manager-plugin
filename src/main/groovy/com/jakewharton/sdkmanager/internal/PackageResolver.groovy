@@ -55,8 +55,8 @@ class PackageResolver {
   }
 
   def resolve() {
-    resolveBuildTools()
     resolvePlatformTools()
+    resolveBuildTools()
     resolveCompileVersion()
     resolveSupportLibraryRepository()
     resolvePlayServiceRepository()
@@ -81,16 +81,11 @@ class PackageResolver {
   }
 
   def resolvePlatformTools() {
-    if (folderExists(platformToolsDir)) {
-      log.debug 'Platform tools found!'
-      return
-    }
+    log.lifecycle "Ensuring Platform and SDK tools are up-to-date..."
 
-    log.lifecycle "Platform tools missing. Downloading..."
-
-    def code = androidCommand.update "platform-tools"
+    def code = androidCommand.update("platform-tools,tools", false)
     if (code != 0) {
-      throw new StopExecutionException("Platform tools download failed with code $code.")
+      throw new StopExecutionException("Platform and SDK tools download failed with code $code.")
     }
   }
 

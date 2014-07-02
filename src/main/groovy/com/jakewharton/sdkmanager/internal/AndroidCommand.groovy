@@ -8,6 +8,7 @@ import static com.android.SdkConstants.androidCmdName
 
 interface AndroidCommand {
   int update(String filter);
+  int update(String filter, boolean all);
 
   static final class Real implements AndroidCommand {
     final Logger log = Logging.getLogger Real
@@ -20,8 +21,8 @@ interface AndroidCommand {
       androidExecutable = new File(toolsDir, androidCmdName())
     }
 
-    @Override int update(String filter) {
-      def cmd = generateCommand(filter)
+    @Override int update(String filter, boolean all=true) {
+      def cmd = generateCommand(filter, all)
       def process = new ProcessBuilder(cmd)
           .redirectErrorStream(true)
           .start()
@@ -41,10 +42,14 @@ interface AndroidCommand {
       return process.waitFor()
     }
 
-    def generateCommand(String filter) {
-      // -a == all
+    def generateCommand(String filter, boolean all) {
       // -u == no UI
-      def result = [androidExecutable.absolutePath, 'update', 'sdk', '-a', '-u'];
+      def result = [androidExecutable.absolutePath, 'update', 'sdk', '-u'];
+
+      // -a == all
+      if (all) {
+        result += ['-a']
+      }
 
       // --proxy-host == hostname of a proxy server
       // --proxy-port == port of a proxy server

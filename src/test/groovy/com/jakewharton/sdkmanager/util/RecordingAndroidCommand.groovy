@@ -5,7 +5,7 @@ import com.jakewharton.sdkmanager.internal.AndroidCommand
 final class RecordingAndroidCommand extends ArrayList<String> implements AndroidCommand {
   int nextReturnCode = 0
 
-  @Override int update(String filter) {
+  @Override int update(String filter, boolean all=true) {
     add("update $filter" as String)
     return nextReturnCode
   }
