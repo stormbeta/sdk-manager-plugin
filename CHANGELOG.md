@@ -1,6 +1,13 @@
 Change Log
 ==========
 
+Version 0.12.0 *(2014-07-12)*
+-----------------------------
+
+ * New: Support for the 0.12.x Android plugin.
+ * New: Download r23 Android SDK.
+
+
 Version 0.10.1 *(2014-04-05)*
 -----------------------------
 
