@@ -8,12 +8,15 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.logging.Logging
 import org.gradle.api.tasks.StopExecutionException
 
+import java.util.regex.Pattern
+
 import static com.android.SdkConstants.FD_BUILD_TOOLS
 import static com.android.SdkConstants.FD_EXTRAS
 import static com.android.SdkConstants.FD_M2_REPOSITORY
 import static com.android.SdkConstants.FD_PLATFORMS
 import static com.android.SdkConstants.FD_ADDONS
 import static com.android.SdkConstants.FD_PLATFORM_TOOLS
+import static com.android.SdkConstants.FD_SYSTEM_IMAGES
 
 class PackageResolver {
   static void resolve(Project project, File sdk) {
@@ -25,6 +28,7 @@ class PackageResolver {
   }
 
   static final String GOOGLE_API_PREFIX = "Google Inc.:Google APIs:"
+  static final String GOOGLE_GDK_PREFIX = "Google Inc.:Glass Development Kit Preview:"
 
   final Logger log = Logging.getLogger PackageResolver
   final Project project
@@ -60,10 +64,11 @@ class PackageResolver {
     resolveCompileVersion()
     resolveSupportLibraryRepository()
     resolvePlayServiceRepository()
+    resolveEmulator()
   }
 
   def resolveBuildTools() {
-    FullRevision buildToolsRevision = project.android.buildToolsRevision
+    def buildToolsRevision = project.android.buildToolsRevision
     log.debug "Build tools version: $buildToolsRevision"
 
     def buildToolsRevisionDir = new File(buildToolsDir, buildToolsRevision.toString())
@@ -100,6 +105,9 @@ class PackageResolver {
       installIfMissing(platformsDir, baseVersion)
       def addonVersion = compileVersion.replace(GOOGLE_API_PREFIX, "addon-google_apis-google-")
       installIfMissing(addonsDir, addonVersion);
+    } else if (compileVersion.startsWith(GOOGLE_GDK_PREFIX)) {
+      def gdkVersion = compileVersion.replace(GOOGLE_GDK_PREFIX, "addon-google_gdk-google-")
+      installIfMissing(platformsDir, gdkVersion);
     } else {
       installIfMissing(platformsDir, compileVersion);
     }
@@ -121,13 +129,14 @@ class PackageResolver {
   }
 
   def resolveSupportLibraryRepository() {
-    def supportLibraryDeps = findDependenciesWithGroup 'com.android.support'
-    if (supportLibraryDeps.isEmpty()) {
+    def supportDeps = findDependenciesStartingWith 'com.android.support'
+
+    if (supportDeps.isEmpty()) {
       log.debug 'No support library dependency found.'
       return
     }
 
-    log.debug "Found support library dependencies: $supportLibraryDeps"
+    log.debug "Found support library dependencies: $supportDeps"
 
     project.repositories.maven {
       url = androidRepositoryDir
@@ -137,7 +146,7 @@ class PackageResolver {
     if (!folderExists(androidRepositoryDir)) {
       needsDownload = true
       log.lifecycle 'Support library repository missing. Downloading...'
-    } else if (!dependenciesAvailable(supportLibraryDeps)) {
+    } else if (!dependenciesAvailable(supportDeps)) {
       needsDownload = true
       log.lifecycle 'Support library repository outdated. Downloading update...'
     }
@@ -186,11 +195,89 @@ class PackageResolver {
     }
   }
 
+  def resolveEmulator() {
+    def emulatorVersion = project.sdkManager.emulatorVersion
+    if (emulatorVersion == null) {
+      log.debug 'No emulator defined'
+      return
+    }
+
+    def emulatorArchitecture = project.sdkManager.emulatorArchitecture
+    if (emulatorArchitecture == null) {
+      emulatorArchitecture = 'armeabi-v7a'
+      log.debug 'No architecture specified, defaulting to armeabi-v7a'
+    }
+
+    log.debug "Found emulator: $emulatorVersion $emulatorArchitecture"
+
+    def emulatorDir = new File(sdk, FD_SYSTEM_IMAGES + "/$emulatorVersion/$emulatorArchitecture")
+    def alternativeEmulatorDir = new File(sdk, FD_SYSTEM_IMAGES + "/$emulatorVersion/default/$emulatorArchitecture")
+    def emulatorPackage = "sys-img-$emulatorArchitecture-$emulatorVersion"
+    def needsDownload = false
+    if (!folderExists(emulatorDir) && !folderExists(alternativeEmulatorDir)) {
+      needsDownload = true
+      log.lifecycle "Emulator $emulatorVersion $emulatorArchitecture missing. Downloading..."
+    } else {
+      def emulatorPropertiesFile = new File(emulatorDir, 'source.properties')
+      if (!emulatorPropertiesFile.canRead()) {
+        emulatorPropertiesFile = new File(alternativeEmulatorDir, 'source.properties')
+        if (!emulatorPropertiesFile.canRead()) {
+          throw new StopExecutionException('Could not read ' + emulatorPropertiesFile.absolutePath)
+        }
+      }
+
+      def emulatorProperties = new Properties()
+      emulatorProperties.load(new FileInputStream(emulatorPropertiesFile))
+      def emulatorRevision = emulatorProperties.getProperty('Pkg.Revision')
+      if (emulatorRevision == null) {
+        throw new StopExecutionException('Could not get the installed emulator revision for ' +
+            emulatorPackage)
+      }
+
+      def currentEmulatorInfo = androidCommand.list emulatorPackage
+      if (currentEmulatorInfo == null || currentEmulatorInfo.isEmpty()) {
+        throw new StopExecutionException('Could not get the current emulator revision for ' +
+            emulatorPackage)
+      }
+
+      def matcher = Pattern.compile("Revision\\ ([0-9]+)").matcher(currentEmulatorInfo)
+      if (!matcher.find()) {
+        throw new StopExecutionException('Could not find the current emulator revision for ' +
+            emulatorPackage)
+      }
+
+      if ((emulatorRevision as int) < (matcher.group(1) as int)) {
+        needsDownload = true
+        log.lifecycle "Emulator $emulatorVersion $emulatorArchitecture outdated. Downloading update..."
+      }
+    }
+
+    if (needsDownload) {
+      def code = androidCommand.update emulatorPackage
+      if (code != 0) {
+        throw new StopExecutionException(
+            "Emulator $emulatorVersion $emulatorArchitecture download failed with code $code.")
+      }
+    }
+  }
+
   def findDependenciesWithGroup(String group) {
     def deps = []
     for (Configuration configuration : project.configurations) {
       for (Dependency dependency : configuration.dependencies) {
         if (group.equals(dependency.group)) {
+          deps.add dependency
+        }
+      }
+    }
+    return deps
+  }
+
+  def findDependenciesStartingWith(String prefix) {
+    def deps = []
+    for (Configuration configuration : project.configurations) {
+      for (Dependency dependency : configuration.dependencies) {
+        if (dependency.group != null && dependency.group.startsWith(prefix)) {
           deps.add dependency
         }
       }

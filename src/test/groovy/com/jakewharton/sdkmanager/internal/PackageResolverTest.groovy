@@ -1,6 +1,7 @@
 package com.jakewharton.sdkmanager.internal
 
 import com.jakewharton.sdkmanager.FixtureName
+import com.jakewharton.sdkmanager.SdkManagerExtension
 import com.jakewharton.sdkmanager.TemporaryFixture
 import com.jakewharton.sdkmanager.util.RecordingAndroidCommand
 import org.gradle.api.Project
@@ -30,7 +31,7 @@ class PackageResolverTest {
       it << "$SDK_DIR_PROPERTY=${fixture.sdk.absolutePath}"
     }
 
-    androidCommand = new RecordingAndroidCommand()
+    androidCommand = new RecordingAndroidCommand(fixture.sdk)
     packageResolver = new PackageResolver(project, fixture.sdk, androidCommand)
   }
 
@@ -146,8 +147,30 @@ class PackageResolverTest {
     assertThat(androidCommand).containsExactly('update android-19')
   }
 
+  @FixtureName("missing-compilation-api")
+  @Test public void googleGdkIsDownloaded() {
+    project.apply plugin: 'android'
+    project.android {
+      compileSdkVersion "Google Inc.:Glass Development Kit Preview:19"
+    }
+
+    packageResolver.resolveCompileVersion()
+    assertThat(androidCommand).containsExactly('update addon-google_gdk-google-19')
+  }
+
+  @FixtureName("outdated-compilation-api")
+  @Test public void outdatedGoogleGdkIsDownloaded() {
+    project.apply plugin: 'android'
+    project.android {
+      compileSdkVersion "Google Inc.:Glass Development Kit Preview:19"
+    }
+
+    packageResolver.resolveCompileVersion()
+    assertThat(androidCommand).containsExactly('update addon-google_gdk-google-19')
+  }
+
   @FixtureName("missing-android-m2repository")
-  @Test public void noSupportLibraryDependencyDoesNotDownload() {
+  @Test public void noSupportLibraryOrTestingDependencyDoesNotDownload() {
     project.apply plugin: 'android'
 
     packageResolver.resolveSupportLibraryRepository()
@@ -176,11 +199,33 @@ class PackageResolverTest {
     assertThat(androidCommand).containsExactly('update extra-android-m2repository')
   }
 
+  @FixtureName("missing-android-m2repository")
+  @Test public void missingSupportTestingRepositoryIsDownloaded() {
+    project.apply plugin: 'android'
+    project.dependencies {
+      compile 'com.android.support.test.espresso:espresso-core:2.0'
+    }
+
+    packageResolver.resolveSupportLibraryRepository()
+    assertThat(androidCommand).containsExactly('update extra-android-m2repository')
+  }
+
   @FixtureName("outdated-android-m2repository")
   @Test public void outdatedSupportLibraryRepositoryIsDownloaded() {
     project.apply plugin: 'android'
     project.dependencies {
       compile 'com.android.support:support-v4:19.1.0'
+    }
+
+    packageResolver.resolveSupportLibraryRepository()
+    assertThat(androidCommand).containsExactly('update extra-android-m2repository')
+  }
+
+  @FixtureName("outdated-android-m2repository")
+  @Test public void outdatedSupportTestingRepositoryIsDownloaded() {
+    project.apply plugin: 'android'
+    project.dependencies {
+      compile 'com.android.support.test.espresso:espresso-core:2.0'
     }
 
     packageResolver.resolveSupportLibraryRepository()
@@ -226,5 +271,65 @@ class PackageResolverTest {
 
     packageResolver.resolvePlayServiceRepository()
     assertThat(androidCommand).containsExactly('update extra-google-m2repository')
+  }
+
+  @FixtureName("no-emulator-version-specified")
+  @Test public void noEmulatorVersionSpecified() {
+    project.apply plugin: 'android'
+    project.extensions.create("sdkManager", SdkManagerExtension)
+
+    packageResolver.resolveEmulator()
+    assertThat(androidCommand).isEmpty()
+  }
+
+  @FixtureName("up-to-date-emulator")
+  @Test public void upToDateEmulatorRecognized() {
+    project.apply plugin: 'android'
+    project.extensions.create("sdkManager", SdkManagerExtension)
+    project.sdkManager {
+      emulatorVersion 'android-19'
+      emulatorArchitecture 'armeabi-v7a'
+    }
+
+    packageResolver.resolveEmulator()
+    assertThat(androidCommand).doesNotContain('update sys-img-armeabi-v7a-android-19')
+  }
+
+  @FixtureName("missing-emulator")
+  @Test public void missingEmulatorDownloaded() {
+    project.apply plugin: 'android'
+    project.extensions.create("sdkManager", SdkManagerExtension)
+    project.sdkManager {
+      emulatorVersion 'android-19'
+      emulatorArchitecture 'armeabi-v7a'
+    }
+
+    packageResolver.resolveEmulator()
+    assertThat(androidCommand).contains('update sys-img-armeabi-v7a-android-19')
+  }
+
+  @FixtureName("missing-emulator")
+  @Test public void emulatorDefaultsToARM() {
+    project.apply plugin: 'android'
+    project.extensions.create("sdkManager", SdkManagerExtension)
+    project.sdkManager {
+      emulatorVersion 'android-19'
+    }
+
+    packageResolver.resolveEmulator()
+    assertThat(androidCommand).contains('update sys-img-armeabi-v7a-android-19')
+  }
+
+  @FixtureName("outdated-emulator")
+  @Test public void outdatedEmulatorDownloaded() {
+    project.apply plugin: 'android'
+    project.extensions.create("sdkManager", SdkManagerExtension)
+    project.sdkManager {
+      emulatorVersion 'android-19'
+      emulatorArchitecture 'armeabi-v7a'
+    }
+
+    packageResolver.resolveEmulator()
+    assertThat(androidCommand).contains('update sys-img-armeabi-v7a-android-19')
   }
 }

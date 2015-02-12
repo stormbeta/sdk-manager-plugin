@@ -8,7 +8,7 @@ import static com.android.SdkConstants.androidCmdName
 
 interface AndroidCommand {
   int update(String filter);
-  int update(String filter, boolean all);
+  String list(String filter);
 
   static final class Real implements AndroidCommand {
     final Logger log = Logging.getLogger Real
@@ -21,8 +21,11 @@ interface AndroidCommand {
       androidExecutable = new File(toolsDir, androidCmdName())
     }
 
-    @Override int update(String filter, boolean all=true) {
-      def cmd = generateCommand(filter, all)
+    @Override int update(String filter) {
+      // -a == all
+      // -t == filter
+      def options = ['-a', '-t', filter]
+      def cmd = generateCommand('update', options)
       def process = new ProcessBuilder(cmd)
           .redirectErrorStream(true)
           .start()
@@ -42,13 +45,40 @@ interface AndroidCommand {
       return process.waitFor()
     }
 
-    def generateCommand(String filter, boolean all) {
-      // -u == no UI
-      def result = [androidExecutable.absolutePath, 'update', 'sdk', '-u'];
-
+    @Override String list(String filter) {
       // -a == all
-      if (all) {
-        result += ['-a']
+      // -e == extended
+      def cmd = generateCommand('list', ['-a', '-e'])
+      def process = new ProcessBuilder(cmd)
+          .redirectErrorStream(true)
+          .start()
+
+      // Pipe the command output to our log.
+      def input = new InputStreamReader(process.in)
+      def output = ''
+      def line
+      while ((line = input.readLine()) != null) {
+        log.debug line
+        output += line
+      }
+
+      process.waitFor()
+
+      def result = ''
+      output.split('----------').each {
+        if (it.contains(filter)) {
+          result += it
+        }
+      }
+
+      return result
+    }
+
+    def generateCommand(String command, options) {
+      // -u == no UI
+      def result = [androidExecutable.absolutePath, command, 'sdk', '-u'];
+      if (options != null) {
+        result += options
       }
 
       // --proxy-host == hostname of a proxy server
@@ -58,9 +88,6 @@ interface AndroidCommand {
       if (proxyHost != null && proxyPort != null) {
         result += ['--proxy-host', proxyHost, '--proxy-port', proxyPort]
       }
-
-      // -t == filter
-      result += ['-t', filter]
 
       return result;
     }
