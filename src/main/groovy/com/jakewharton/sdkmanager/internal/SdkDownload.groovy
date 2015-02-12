@@ -5,47 +5,30 @@ import org.gradle.api.logging.Logger
 import org.gradle.api.logging.Logging
 import org.rauschig.jarchivelib.ArchiverFactory
 
-import static com.android.SdkConstants.PLATFORM_DARWIN
-import static com.android.SdkConstants.PLATFORM_LINUX
-import static com.android.SdkConstants.PLATFORM_WINDOWS
-import static com.android.SdkConstants.currentPlatform
 import static org.rauschig.jarchivelib.ArchiveFormat.TAR
 import static org.rauschig.jarchivelib.ArchiveFormat.ZIP
 import static org.rauschig.jarchivelib.CompressionType.GZIP
 
+
 /** Manages platform-specific SDK downloads. */
-enum SdkDownload {
-  WINDOWS('windows','zip'),
-  LINUX('linux', 'tgz'),
-  DARWIN('macosx', 'zip');
-
-  static SdkDownload get() {
-    switch (currentPlatform()) {
-      case PLATFORM_WINDOWS:
-        return WINDOWS
-      case PLATFORM_LINUX:
-        return LINUX
-      case PLATFORM_DARWIN:
-        return DARWIN
-      default:
-        throw new IllegalStateException("Unknown platform.")
-    }
-  }
-
-  final static String SDK_VERSION_MAJOR = "24.0.2";
-
+class SdkDownload implements Downloader {
+  final String baseUrl
+  final String sdkMajorVersion
   final Logger log = Logging.getLogger SdkDownload
-  final String suffix
-  final String ext
+  final SdkPlatform platform
 
-  SdkDownload(String suffix, String ext) {
-    this.suffix = suffix
-    this.ext = ext
+  private String getExt() { return platform.ext }
+  private String getSuffix() { return platform.suffix }
+
+  SdkDownload(platform = SdkPlatform.get(), baseUrl = SdkResolver.DEFAULT_SDK_URL, sdkVersion = SdkResolver.DEFAULT_SDK_VERSION) {
+    this.platform = platform
+    this.baseUrl = baseUrl
+    this.sdkMajorVersion = sdkVersion
   }
 
   /** Download the SDK to {@code temp} and extract to {@code dest}. */
   void download(File dest) {
-    def url = "http://dl.google.com/android/android-sdk_r$SDK_VERSION_MAJOR-$suffix.$ext"
+    def url = "${baseUrl}/android-sdk_r${sdkMajorVersion}-${suffix}.${ext}"
     log.debug "Downloading SDK from $url."
 
     File temp = new File(dest.getParentFile(), 'android-sdk.temp')
