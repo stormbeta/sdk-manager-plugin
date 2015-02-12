@@ -4,6 +4,7 @@ import com.android.build.gradle.LibraryPlugin
 import com.jakewharton.sdkmanager.internal.AndroidCommand
 import com.jakewharton.sdkmanager.internal.PackageResolver
 import com.jakewharton.sdkmanager.internal.SdkResolver
+import com.jakewharton.sdkmanager.internal.System
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.logging.Logger

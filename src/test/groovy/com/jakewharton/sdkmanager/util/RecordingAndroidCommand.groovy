@@ -9,7 +9,7 @@ final class RecordingAndroidCommand extends ArrayList<String> implements Android
     this.sdk = sdk
   }
 
-  @Override int update(String filter, boolean all=true) {
+  @Override int update(String filter) {
     add("update $filter" as String)
     return nextReturnCode
   }

@@ -88,7 +88,7 @@ class PackageResolver {
   def resolvePlatformTools() {
     log.lifecycle "Ensuring Platform and SDK tools are up-to-date..."
 
-    def code = androidCommand.update("platform-tools,tools", false)
+    def code = androidCommand.update("platform-tools,tools")
     if (code != 0) {
       throw new StopExecutionException("Platform and SDK tools download failed with code $code.")
     }
