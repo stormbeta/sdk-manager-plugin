@@ -14,8 +14,14 @@ import static com.android.SdkConstants.currentPlatform
 class SdkResolver {
   static File resolve(Project project) {
     boolean isWindows = currentPlatform() == PLATFORM_WINDOWS
-    return new SdkResolver(project, new System.Real(), new Downloader.Real(), isWindows).resolve()
+    def baseUrl = project.hasProperty('sdkBaseUrl') ? project.property('sdkBaseUrl') : DEFAULT_SDK_URL
+    def sdkVersion = project.hasProperty('sdkVersion') ? project.property('sdkVersion') : DEFAULT_SDK_VERSION
+    Downloader realDownloader = new SdkDownload(SdkPlatform.get(), baseUrl, sdkVersion)
+    return new SdkResolver(project, new System.Real(), realDownloader, isWindows).resolve()
   }
+
+  static final String DEFAULT_SDK_URL = 'https://dl.google.com/android'
+  static final String DEFAULT_SDK_VERSION = '24.0.2'
 
   final Logger log = Logging.getLogger SdkResolver
   final Project project
