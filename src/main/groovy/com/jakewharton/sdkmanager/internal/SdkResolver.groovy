@@ -16,7 +16,7 @@ class SdkResolver {
     boolean isWindows = currentPlatform() == PLATFORM_WINDOWS
     def baseUrl = project.hasProperty('sdkBaseUrl') ? project.property('sdkBaseUrl') : DEFAULT_SDK_URL
     def sdkVersion = project.hasProperty('sdkVersion') ? project.property('sdkVersion') : DEFAULT_SDK_VERSION
-    Downloader realDownloader = new SdkDownload(baseUrl, sdkVersion)
+    Downloader realDownloader = new SdkDownload(SdkPlatform.get(), baseUrl, sdkVersion)
     return new SdkResolver(project, new System.Real(), realDownloader, isWindows).resolve()
   }
 
