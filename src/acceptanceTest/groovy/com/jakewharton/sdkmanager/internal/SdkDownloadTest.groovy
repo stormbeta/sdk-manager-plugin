@@ -13,7 +13,9 @@ import static org.fest.assertions.api.Assertions.assertThat
 class SdkDownloadTest {
   @Parameterized.Parameters(name = "{0}")
   public static Iterable<Object[]> data() {
-    return SdkPlatform.values().collect { [new SdkDownload(it)] as Object[] }
+    return SdkPlatform.values().collect {
+      [new SdkDownload(it, SdkResolver.DEFAULT_SDK_URL, SdkResolver.DEFAULT_SDK_VERSION)] as Object[]
+    }
   }
 
   @Parameterized.Parameter

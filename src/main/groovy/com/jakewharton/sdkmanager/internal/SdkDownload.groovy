@@ -19,7 +19,7 @@ class SdkDownload implements Downloader {
   private String getExt() { return platform.ext }
   private String getSuffix() { return platform.suffix }
 
-  SdkDownload(platform = SdkPlatform.get(), baseUrl = SdkResolver.DEFAULT_SDK_URL, sdkVersion = SdkResolver.DEFAULT_SDK_VERSION) {
+  SdkDownload(platform = SdkPlatform.get(), baseUrl, sdkVersion) {
     this.platform = platform
     this.baseUrl = baseUrl
     this.sdkMajorVersion = sdkVersion
